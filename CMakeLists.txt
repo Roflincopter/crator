@@ -10,6 +10,11 @@ find_package(Boost COMPONENTS filesystem system REQUIRED)
 set(crator_sources
 	crator.cpp
 	bpmdetection.hpp bpmdetection.cpp
+	chunker.hpp chunker.cpp
+	monoloader.hpp monoloader.cpp
+	essentiastandardalgorithmwrapper.hpp essentiastandardalgorithmwrapper.cpp
+	energy.hpp energy.cpp
+	monowriter.hpp monowriter.cpp
 )
 
 add_executable(crator

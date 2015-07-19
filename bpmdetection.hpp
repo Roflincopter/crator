@@ -1,19 +1,16 @@
+#pragma once
 
-#include <boost/filesystem.hpp>
-#include <essentia/algorithm.h>
-#include <essentia/algorithmfactory.h>
+#include "essentiastandardalgorithmwrapper.hpp"
 
-using essentia::Real;
+#include <memory>
 
-class BPMDetection
+class BPMDetection : public EssentiaStandardAlgorithmWrapper
 {
-	essentia::standard::AlgorithmFactory& factory;
-	std::unique_ptr<essentia::standard::Algorithm> mono_loader;
 	std::unique_ptr<essentia::standard::Algorithm> bpm;
 public:
-	BPMDetection(boost::filesystem::path filename);
+	BPMDetection();
 	
-	struct BPMResult {
+	struct Result {
 		Real bpm;
 		std::vector<Real> ticks;
 		Real confidence;
@@ -21,7 +18,7 @@ public:
 		std::vector<Real> bpm_intervals;
 	};
 	
-	BPMResult calculate();
+	Result compute(std::vector<essentia::Real> const& audio);
 };
 
-std::ostream& operator<<(std::ostream& os, BPMDetection::BPMResult const& x);
+std::ostream& operator<<(std::ostream& os, BPMDetection::Result const& x);
