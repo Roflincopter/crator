@@ -4,38 +4,18 @@
 #include "chunker.hpp"
 #include "energy.hpp"
 #include "monowriter.hpp"
+#include "visualizerwindow.hpp"
+#include "ziprange.hpp"
 
 #include <boost/format.hpp>
-#include <boost/iterator/zip_iterator.hpp>
-#include <boost/range/iterator.hpp>
-#include <boost/tuple/tuple.hpp>
-#include <boost/range/iterator_range_core.hpp>
+
+#include <QApplication>
 
 #include <string>
 #include <memory>
 #include <ostream>
 
 using namespace essentia;
-
-template<class... Conts>
-auto zip_range(Conts&... conts) {
-	return boost::make_iterator_range(
-		boost::make_zip_iterator(boost::make_tuple(conts.begin()...)),
-		boost::make_zip_iterator(boost::make_tuple(conts.end()...))
-	);
-}
-
-struct EnergyChunks {
-	std::vector<std::vector<Real>> chunks;
-	std::vector<Real> energy;
-	
-	friend std::ostream& operator<<(std::ostream& os, EnergyChunks const& ec){
-		for(auto const& tuple : zip_range(ec.chunks, ec.energy)) {
-			os << "samples: [...] size: " << boost::get<0>(tuple).size() << " energy: " << boost::get<1>(tuple) << std::endl;
-		}
-		return os;
-	}
-};
 
 EnergyChunks get_energy_chunks(boost::filesystem::path filename) {
 	MonoLoader loader;
@@ -86,11 +66,34 @@ int main(int argc, char* argv[]) {
 		throw std::runtime_error(file.string() + "Does not exists or isn't a file");
 	}
 	
+	MonoLoader loader;
+	MonoLoader::Result audio = loader.compute(filename);
+	
 	auto energy_chunks = get_energy_chunks(file);
-	write_energy_chunks(energy_chunks);
-	std::cout << std::endl;
+	//write_energy_chunks(energy_chunks);
+	//std::cout << std::endl;
 	
-	std::cout << energy_chunks << std::endl;
+	//std::cout << energy_chunks << std::endl;
 	
-	std::cout << result << std::endl;
+	int retval = 0;
+	{
+		int x = 0;
+		
+		QSurfaceFormat fmt;
+		fmt.setVersion(3, 3);
+		fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
+		QSurfaceFormat::setDefaultFormat(fmt);
+		
+		QApplication qapp(x, nullptr);
+
+		auto gui = std::make_shared<VisualizerWindow>();
+
+		gui->show();
+		
+		gui->visualize(energy_chunks, audio.signal);
+		
+		retval = qapp.exec();
+	}
+	
+	return retval;
 }
