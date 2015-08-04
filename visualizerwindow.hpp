@@ -3,6 +3,7 @@
 #include "ui_visualizerwindow.hpp"
 
 #include "energychunks.hpp"
+#include "waveformalgorithm.hpp"
 
 class VisualizerWindow : public QMainWindow
 {
@@ -11,10 +12,9 @@ class VisualizerWindow : public QMainWindow
 public:
 	explicit VisualizerWindow(QWidget *parent = 0);
 	
-	void visualize(EnergyChunks ec, std::vector<essentia::Real> signal);
+	void visualize(std::vector<WaveformData> waveformdata);
 	
 private:
-	EnergyChunks chunks;
 
 	Ui::Visualizer ui;
 };

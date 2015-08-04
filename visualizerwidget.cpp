@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-VisualizerWidget::VisualizerWidget(QWidget* parent)
+VisualizerWidget::VisualizerWidget(WaveformData data, QWidget* parent)
 : QOpenGLWidget(parent)
 , quad_vbo(0)
 , vertexShader(0)
@@ -15,49 +15,8 @@ VisualizerWidget::VisualizerWidget(QWidget* parent)
 , screen_size(0)
 , pos_wave_form(0)
 , vao(0)
+, data(data)
 {}
-
-void VisualizerWidget::set_data(EnergyChunks ec, std::vector<essentia::Real> signal)
-{
-	this->signal = signal;
-	
-	float sample_per_pixel = signal.size() / float(width + 1);
-	
-	std::vector<essentia::Real> pos_vals;
-	std::vector<essentia::Real> neg_vals;
-	
-	essentia::Real pos_avg = 0;
-	essentia::Real neg_avg = 0;
-	int pos_samples = 0;
-	int neg_samples = 0;
-	int sample_index = 0;
-	for(auto&& sample : signal) {
-		if(sample_index >= (pos_vals.size() + 1) * sample_per_pixel) {
-			pos_vals.push_back(pos_avg / pos_samples);
-			pos_avg = 0;
-			pos_samples = 0;
-			
-			neg_vals.push_back(neg_avg / neg_samples);
-			neg_avg = 0;
-			neg_samples = 0;
-		}
-		if(sample > 0) {
-			pos_avg += sample;
-			++pos_samples;
-		} else if (sample < 0) {
-			neg_avg += sample;
-			++neg_samples;
-		}
-		++sample_index;
-	}
-	positive_wave_form = pos_vals;
-	negative_wave_form = neg_vals;
-	
-	min_max = {
-		*std::min_element(neg_vals.begin(), neg_vals.end()),
-		*std::max_element(pos_vals.begin(), pos_vals.end())
-	};
-}
 
 void VisualizerWidget::initializeGL()
 {
@@ -136,7 +95,7 @@ void VisualizerWidget::initializeGL()
 	screen_size = glGetUniformLocation(shaderProgram, "screen_size");
 	pos_wave_form = glGetUniformLocation(shaderProgram, "pos_wave_form");
 	neg_wave_form = glGetUniformLocation(shaderProgram, "neg_wave_form");
-	min_max_value = glGetUniformLocation(shaderProgram, "min_max_value");
+	energy = glGetUniformLocation(shaderProgram, "energy");
 	
 	float magenta[] = {1.0f, 0.0f, 1.0f, 1.0f };
 	
@@ -160,6 +119,16 @@ void VisualizerWidget::initializeGL()
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	
+	glGenTextures(1, &energy_tex);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_1D, energy_tex);
+	
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_1D, GL_TEXTURE_BORDER_COLOR, magenta);
+	
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	
 	glBindTexture(GL_TEXTURE_1D, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -168,6 +137,7 @@ void VisualizerWidget::initializeGL()
 
 void VisualizerWidget::paintGL()
 {	
+	std::cout << "draw: " << std::endl;
 	glUseProgram(shaderProgram);
 	glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
 	glBindVertexArray(vao);
@@ -175,28 +145,40 @@ void VisualizerWidget::paintGL()
 	glBindTexture(GL_TEXTURE_1D, pos_waveform_tex);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_1D, neg_waveform_tex);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_1D, energy_tex);
 	
-	using essentia::operator <<;
-	std::cout << width << " " << height << std::endl;
-	std::cout << positive_wave_form.size() <<" " << positive_wave_form << std::endl;
-	std::cout << min_max[0] << " " << min_max[1] << std::endl;
 	
-	if(positive_wave_form.size() != 0) {
+	std::cout << data << std::endl;
+	
+	//using essentia::operator <<;
+	//std::cout << width << " " << height << std::endl;
+	//std::cout << positive_wave_form_data.size() <<" " << positive_wave_form_data << std::endl;
+	//std::cout << min_max[0] << " " << min_max[1] << std::endl;
+	
+	if(data.positive_waveform.size() != 0) {
 		glUniform2f(screen_size, width, height);
 		
 		glActiveTexture(GL_TEXTURE0);
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, width, 0, GL_RED, GL_FLOAT, positive_wave_form.data());
+		glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, width, 0, GL_RED, GL_FLOAT, data.positive_waveform.data());
 		glUniform1i(pos_wave_form, 0);
 		
 		glActiveTexture(GL_TEXTURE1);
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, width, 0, GL_RED, GL_FLOAT, negative_wave_form.data());
+		glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, width, 0, GL_RED, GL_FLOAT, data.negative_waveform.data());
 		glUniform1i(neg_wave_form, 1);
 		
-		glUniform2f(min_max_value, min_max[0], min_max[1]);
-	
+		glActiveTexture(GL_TEXTURE2);
+		glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, width, 0, GL_RED, GL_FLOAT, data.energy.data());
+		glUniform1i(energy, 2);
+		
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 	
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_1D, 0);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_1D, 0);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_1D, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -207,6 +189,8 @@ void VisualizerWidget::resizeGL(int w, int h)
 {
 	width = w;
 	height = h;
+	std::cout << "resizing: so recalculating" << std::endl;
+	data.calculate_waveform_data(w);
 }
 
 void VisualizerWidget::cleanup()

@@ -6,16 +6,24 @@
 #include "monowriter.hpp"
 #include "visualizerwindow.hpp"
 #include "ziprange.hpp"
+#include "waveformalgorithm.hpp"
 
 #include <boost/format.hpp>
 
 #include <QApplication>
+#include <QSurfaceFormat>
 
 #include <string>
 #include <memory>
 #include <ostream>
 
-using namespace essentia;
+using essentia::Real;
+
+std::vector<Real> get_audio_data(boost::filesystem::path filename) {
+	MonoLoader loader;
+	MonoLoader::Result audio = loader.compute(filename);
+	return audio.signal;
+}
 
 EnergyChunks get_energy_chunks(boost::filesystem::path filename) {
 	MonoLoader loader;
@@ -37,7 +45,7 @@ EnergyChunks get_energy_chunks(boost::filesystem::path filename) {
 		energies.push_back(energy_val.energy);
 	}
 	
-	return EnergyChunks{chunks.chunks, energies};
+	return EnergyChunks(chunks.chunks, energies);
 }
 
 void write_energy_chunks(EnergyChunks energy_chunks) {
@@ -54,26 +62,29 @@ void write_energy_chunks(EnergyChunks energy_chunks) {
 
 int main(int argc, char* argv[]) {
 
-	std::string filename;
-	if(argc == 2) {
-		filename = std::string(argv[1]);
+	std::vector<std::string> filenames;
+	if(argc >= 2) {
+		for(int i = 1; i < argc; ++i) {
+			filenames.emplace_back(argv[1]);
+		}
 	} else {
 		throw std::runtime_error("This program expects 1 argument to an audio file");
 	}
 	
-	boost::filesystem::path file(filename);
-	if(!boost::filesystem::exists(file) || !boost::filesystem::is_regular_file(file)) {
-		throw std::runtime_error(file.string() + "Does not exists or isn't a file");
+	std::vector<boost::filesystem::path> paths;
+	std::copy(filenames.begin(), filenames.end(), std::back_inserter(paths));
+	
+	for(auto&& path : paths) {
+		if(!boost::filesystem::exists(path) || !boost::filesystem::is_regular_file(path)) {
+			throw std::runtime_error(path.string() + "Does not exists or isn't a file");
+		}
 	}
 	
-	MonoLoader loader;
-	MonoLoader::Result audio = loader.compute(filename);
+	std::vector<std::vector<Real>> samples;
+	std::transform(paths.begin(), paths.end(), std::back_inserter(samples), get_audio_data);
 	
-	auto energy_chunks = get_energy_chunks(file);
-	//write_energy_chunks(energy_chunks);
-	//std::cout << std::endl;
-	
-	//std::cout << energy_chunks << std::endl;
+	std::vector<EnergyChunks> chunks;
+	std::transform(paths.begin(), paths.end(), std::back_inserter(chunks), get_energy_chunks);
 	
 	int retval = 0;
 	{
@@ -81,7 +92,7 @@ int main(int argc, char* argv[]) {
 		
 		QSurfaceFormat fmt;
 		fmt.setVersion(3, 3);
-		fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
+		fmt.setProfile(QSurfaceFormat::CoreProfile);
 		QSurfaceFormat::setDefaultFormat(fmt);
 		
 		QApplication qapp(x, nullptr);
@@ -90,7 +101,12 @@ int main(int argc, char* argv[]) {
 
 		gui->show();
 		
-		gui->visualize(energy_chunks, audio.signal);
+		std::vector<WaveformData> data;
+		for(auto&& tuple : zip_range(samples, chunks)) {
+			data.emplace_back(boost::get<0>(tuple), boost::get<1>(tuple));
+		}
+		
+		gui->visualize(data);
 		
 		retval = qapp.exec();
 	}

@@ -38,6 +38,6 @@ Chunker::Result Chunker::compute(std::vector<Real> const& audio, const std::vect
 }
 
 std::ostream& operator<<(std::ostream& os, Chunker::Result const& x) {
-	os << x.chunks << std::endl;
+	return os << x.chunks << std::endl;
 }
 

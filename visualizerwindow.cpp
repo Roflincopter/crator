@@ -1,13 +1,16 @@
 #include "visualizerwindow.hpp"
+#include "visualizerwidget.hpp"
 
 VisualizerWindow::VisualizerWindow(QWidget *parent)
 : QMainWindow(parent)
-, chunks()
 {
 	ui.setupUi(this);
 }
 
-void VisualizerWindow::visualize(EnergyChunks ec, std::vector<essentia::Real> signal)
+void VisualizerWindow::visualize(std::vector<WaveformData> waveformdata)
 {
-	ui.oglvisualizer->set_data(ec, signal);
+	for(auto&& data : waveformdata) {
+		auto widget = new VisualizerWidget(data, this);
+		ui.verticalLayout->addWidget(widget);
+	}
 }

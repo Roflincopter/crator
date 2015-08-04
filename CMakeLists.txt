@@ -55,6 +55,7 @@ set(crator_sources
 	energy.hpp energy.cpp
 	monowriter.hpp monowriter.cpp
 	energychunks.hpp energychunks.cpp
+	waveformalgorithm.hpp waveformalgorithm.cpp
 	visualizerwindow.hpp visualizerwindow.cpp
 	visualizerwidget.hpp visualizerwidget.cpp
 	${QtGeneratedHeaders} ${QtGeneratedSources}
